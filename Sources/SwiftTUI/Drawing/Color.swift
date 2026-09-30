@@ -7,7 +7,7 @@ import Foundation
 ///
 /// The named colors are ANSI colors. In many terminal emulators they are user-defined or part of a
 /// theme, and bold text automatically uses the bright color variant.
-public struct Color: Hashable {
+public struct Color: Hashable, Sendable {
     private let data: Data
 
     private enum Data: Hashable {

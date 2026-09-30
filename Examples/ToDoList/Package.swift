@@ -17,6 +17,5 @@ let package = Package(
         .testTarget(
             name: "ToDoListTests",
             dependencies: ["ToDoList"]),
-    ],
-    swiftLanguageModes: [.v5]
+    ]
 )

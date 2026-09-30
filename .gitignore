@@ -1,5 +1,6 @@
 .DS_Store
-/.build
+.build/
+.benchmarkBaselines/
 /Packages
 /*.xcodeproj
 xcuserdata/
@@ -7,4 +8,5 @@ DerivedData/
 .swiftpm/config/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
-
+Package.resolved
+Benchmarks/Package.resolved

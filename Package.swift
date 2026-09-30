@@ -1,11 +1,11 @@
-// swift-tools-version: 5.6
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "SwiftTUI",
     platforms: [
-        .macOS(.v11)
+        .macOS(.v14)
     ],
     products: [
         .library(
@@ -18,9 +18,17 @@ let package = Package(
     targets: [
         .target(
             name: "SwiftTUI",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .enableUpcomingFeature("MemberImportVisibility"),
+            ]),
         .testTarget(
             name: "SwiftTUITests",
-            dependencies: ["SwiftTUI"]),
+            dependencies: ["SwiftTUI"],
+            swiftSettings: [
+                .swiftLanguageMode(.v5),
+                .enableUpcomingFeature("MemberImportVisibility"),
+            ]),
     ]
 )

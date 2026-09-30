@@ -7,6 +7,7 @@ public class Application {
     private let node: Node
     private let window: Window
     private let control: Control
+    var rootControl: Control { control }
     private let renderer: Renderer
 
     private let runLoopType: RunLoopType
@@ -16,7 +17,13 @@ public class Application {
     private var invalidatedNodes: [Node] = []
     private var updateScheduled = false
 
-    public init<I: View>(rootView: I, runLoopType: RunLoopType = .dispatch) {
+    public convenience init<I: View>(rootView: I, runLoopType: RunLoopType = .dispatch) {
+        self.init(rootView: rootView, runLoopType: runLoopType, output: StandardOutput())
+    }
+
+    /// Creates an application that renders to `output` instead of standard output.
+    @_spi(Testing)
+    public init<I: View>(rootView: I, runLoopType: RunLoopType = .dispatch, output: TerminalOutput) {
         self.runLoopType = runLoopType
 
         node = Node(view: VStack(content: rootView).view)
@@ -30,7 +37,7 @@ public class Application {
         window.firstResponder = control.firstSelectableElement
         window.firstResponder?.becomeFirstResponder()
 
-        renderer = Renderer(layer: window.layer)
+        renderer = Renderer(layer: window.layer, output: output)
         window.layer.renderer = renderer
 
         node.application = self
@@ -96,6 +103,12 @@ public class Application {
             return
         }
 
+        handleInput(string)
+    }
+
+    /// Processes `string` as if it had been typed into the terminal.
+    @_spi(Testing)
+    public func handleInput(_ string: String) {
         for char in string {
             if arrowKeyParser.parse(character: char) {
                 guard let key = arrowKeyParser.arrowKey else { continue }
@@ -157,6 +170,21 @@ public class Application {
         renderer.update()
     }
 
+    /// Applies pending state changes and redraws what they invalidated,
+    /// without waiting for the run loop.
+    @_spi(Testing)
+    public func flushUpdates() {
+        update()
+    }
+
+    /// Sets the window size, then lays out and fully redraws the view hierarchy.
+    @_spi(Testing)
+    public func resize(columns: Int, lines: Int) {
+        setWindowSize(Size(width: Extended(columns), height: Extended(lines)))
+        control.layout(size: window.layer.frame.size)
+        renderer.draw()
+    }
+
     private func handleWindowSizeChange() {
         updateWindowSize()
         control.layer.invalidate()
@@ -164,13 +192,15 @@ public class Application {
     }
 
     private func updateWindowSize() {
-        var size = winsize()
-        guard ioctl(STDOUT_FILENO, UInt(TIOCGWINSZ), &size) == 0,
-              size.ws_col > 0, size.ws_row > 0 else {
+        guard let size = Platform.terminalSize(of: STDOUT_FILENO) else {
             assertionFailure("Could not get window size")
             return
         }
-        window.layer.frame.size = Size(width: Extended(Int(size.ws_col)), height: Extended(Int(size.ws_row)))
+        setWindowSize(size)
+    }
+
+    private func setWindowSize(_ size: Size) {
+        window.layer.frame.size = size
         renderer.setCache()
     }
 

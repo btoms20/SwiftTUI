@@ -20,8 +20,11 @@ class Renderer {
 
     weak var application: Application?
 
-    init(layer: Layer) {
+    private let output: TerminalOutput
+
+    init(layer: Layer, output: TerminalOutput = StandardOutput()) {
         self.layer = layer
+        self.output = output
         setCache()
         setup()
     }
@@ -117,8 +120,8 @@ class Renderer {
         currentAttributes = attributes
     }
 
-}
+    private func write(_ string: String) {
+        output.write(string)
+    }
 
-private func write(_ str: String) {
-    str.withCString { _ = write(STDOUT_FILENO, $0, strlen($0)) }
 }

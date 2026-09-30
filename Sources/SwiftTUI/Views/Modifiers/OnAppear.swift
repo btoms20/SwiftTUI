@@ -1,14 +1,14 @@
 import Foundation
 
 public extension View {
-    func onAppear(_ action: @escaping () -> Void) -> some View {
+    func onAppear(_ action: @escaping @MainActor () -> Void) -> some View {
         return OnAppear(content: self, action: action)
     }
 }
 
 private struct OnAppear<Content: View>: View, PrimitiveView, ModifierView {
     let content: Content
-    let action: () -> Void
+    let action: @MainActor () -> Void
 
     static var size: Int? { Content.size }
 
@@ -29,10 +29,10 @@ private struct OnAppear<Content: View>: View, PrimitiveView, ModifierView {
     }
 
     private class OnAppearControl: Control {
-        var action: () -> Void
+        var action: @MainActor () -> Void
         var didAppear = false
 
-        init(action: @escaping () -> Void) {
+        init(action: @escaping @MainActor () -> Void) {
             self.action = action
         }
 

@@ -15,6 +15,5 @@ let package = Package(
             name: "Colors",
             dependencies: ["SwiftTUI"]
         ),
-    ],
-    swiftLanguageModes: [.v5]
+    ]
 )

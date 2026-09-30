@@ -20,8 +20,9 @@ struct ToDoView: View {
     }
 
     private func delete() {
-        deleting = true 
-        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(500)) {
+        deleting = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
             onDelete()
         }
     }

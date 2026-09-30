@@ -2,11 +2,11 @@ import Foundation
 
 public struct TextField: View, PrimitiveView {
     public let placeholder: String?
-    public let action: (String) -> Void
+    public let action: @MainActor (String) -> Void
 
     @Environment(\.placeholderColor) private var placeholderColor: Color
 
-    public init(placeholder: String? = nil, action: @escaping (String) -> Void) {
+    public init(placeholder: String? = nil, action: @escaping @MainActor (String) -> Void) {
         self.placeholder = placeholder
         self.action = action
     }
@@ -27,11 +27,11 @@ public struct TextField: View, PrimitiveView {
     private class TextFieldControl: Control {
         var placeholder: String
         var placeholderColor: Color
-        var action: (String) -> Void
+        var action: @MainActor (String) -> Void
 
         var text: String = ""
 
-        init(placeholder: String, placeholderColor: Color, action: @escaping (String) -> Void) {
+        init(placeholder: String, placeholderColor: Color, action: @escaping @MainActor (String) -> Void) {
             self.placeholder = placeholder
             self.placeholderColor = placeholderColor
             self.action = action

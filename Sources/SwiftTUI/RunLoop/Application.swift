@@ -3,6 +3,7 @@ import Foundation
 import AppKit
 #endif
 
+@MainActor
 public class Application {
     private let node: Node
     private let window: Window
@@ -46,7 +47,7 @@ public class Application {
 
     var stdInSource: DispatchSourceRead?
 
-    public enum RunLoopType {
+    public enum RunLoopType: Sendable {
         /// The default option, using Dispatch for the main run loop.
         case dispatch
 
@@ -65,17 +66,17 @@ public class Application {
         renderer.draw()
 
         let stdInSource = DispatchSource.makeReadSource(fileDescriptor: STDIN_FILENO, queue: .main)
-        stdInSource.setEventHandler(qos: .default, flags: [], handler: self.handleInput)
+        setMainEventHandler(stdInSource) { $0.handleInput() }
         stdInSource.resume()
         self.stdInSource = stdInSource
 
         let sigWinChSource = DispatchSource.makeSignalSource(signal: SIGWINCH, queue: .main)
-        sigWinChSource.setEventHandler(qos: .default, flags: [], handler: self.handleWindowSizeChange)
+        setMainEventHandler(sigWinChSource) { $0.handleWindowSizeChange() }
         sigWinChSource.resume()
 
         signal(SIGINT, SIG_IGN)
         let sigIntSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
-        sigIntSource.setEventHandler(qos: .default, flags: [], handler: self.stop)
+        setMainEventHandler(sigIntSource) { $0.stop() }
         sigIntSource.resume()
 
         switch runLoopType {
@@ -86,6 +87,15 @@ public class Application {
             NSApplication.shared.setActivationPolicy(.accessory)
             NSApplication.shared.run()
         #endif
+        }
+    }
+
+    /// Calls `handler` for each event from `source`, which must deliver on the main queue.
+    private func setMainEventHandler(_ source: DispatchSourceProtocol, _ handler: @escaping @MainActor (Application) -> Void) {
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                if let self { handler(self) }
+            }
         }
     }
 

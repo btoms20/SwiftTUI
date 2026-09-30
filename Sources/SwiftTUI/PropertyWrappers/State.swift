@@ -16,6 +16,7 @@ public struct State<T>: AnyState {
     /// a reference to state stored in a Node.
     var valueReference = StateReference()
 
+    @MainActor
     public var wrappedValue: T {
         get {
             guard let node = valueReference.node,
@@ -41,6 +42,7 @@ public struct State<T>: AnyState {
         }
     }
 
+    @MainActor
     public var projectedValue: Binding<T> {
         // Note: this works, but it is not as efficient as in SwiftUI.
         // In SwiftUI, Bindings can actively observe state. If you have a
@@ -55,7 +57,11 @@ protocol AnyState {
     var valueReference: StateReference { get }
 }
 
-class StateReference {
+@MainActor
+final class StateReference {
     weak var node: Node?
     var label: String?
+
+    // Property wrappers are created wherever their view is, which may be off the main actor.
+    nonisolated init() {}
 }

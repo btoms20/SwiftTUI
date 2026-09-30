@@ -18,13 +18,20 @@ public struct ObservedObject<T: ObservableObject>: AnyObservedObject {
         get { initialValue }
     }
 
-    func subscribe(_ action: @escaping () -> Void) -> AnyCancellable {
-        initialValue.objectWillChange.sink(receiveValue: { _ in action() })
+    func subscribe(_ action: @escaping @MainActor () -> Void) -> AnyCancellable {
+        initialValue.objectWillChange.sink { _ in
+            // Objects may publish changes from any thread.
+            if Thread.isMainThread {
+                MainActor.assumeIsolated(action)
+            } else {
+                Task { @MainActor in action() }
+            }
+        }
     }
 }
 
 protocol AnyObservedObject {
-    func subscribe(_ action: @escaping () -> Void) -> AnyCancellable
+    func subscribe(_ action: @escaping @MainActor () -> Void) -> AnyCancellable
 }
 
 #endif

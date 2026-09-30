@@ -5,6 +5,7 @@
 ///
 /// Updates are processed synchronously: call ``send(_:)`` or ``flush()`` and
 /// then read ``text`` or ``terminal``.
+@MainActor
 final class TestHost {
     let terminal: VirtualTerminal
     let application: Application

@@ -71,9 +71,8 @@ let benchmarks: @Sendable () -> Void = {
 
 /// Registers a benchmark whose body runs on the main actor.
 ///
-/// SwiftTUI schedules its updates on the main queue, so driving it from the
-/// runner's thread would race with them. The hop happens once per run, not
-/// per iteration.
+/// SwiftTUI is main-actor isolated, but the runner calls benchmarks on its own
+/// thread. The hop happens once per run, not per iteration.
 func mainActorBenchmark(_ name: String, _ body: @escaping @MainActor (Benchmark) -> Void) {
     Benchmark(name) { benchmark async in
         // `Benchmark` isn't Sendable, but the runner waits for us to finish,

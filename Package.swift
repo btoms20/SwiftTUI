@@ -19,16 +19,18 @@ let package = Package(
         .target(
             name: "SwiftTUI",
             dependencies: [],
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .enableUpcomingFeature("MemberImportVisibility"),
-            ]),
+            swiftSettings: swiftSettings),
         .testTarget(
             name: "SwiftTUITests",
             dependencies: ["SwiftTUI"],
-            swiftSettings: [
-                .swiftLanguageMode(.v5),
-                .enableUpcomingFeature("MemberImportVisibility"),
-            ]),
+            swiftSettings: swiftSettings),
     ]
 )
+
+var swiftSettings: [SwiftSetting] {
+    [
+        .enableUpcomingFeature("MemberImportVisibility"),
+        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+        .enableUpcomingFeature("InferIsolatedConformances"),
+    ]
+}

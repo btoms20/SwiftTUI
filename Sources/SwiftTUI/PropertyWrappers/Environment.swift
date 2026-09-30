@@ -23,6 +23,7 @@ public struct Environment<T>: AnyEnvironment {
 
     var valueReference = EnvironmentReference()
 
+    @MainActor
     public var wrappedValue: T {
         get {
             guard let node = valueReference.node else {
@@ -35,6 +36,7 @@ public struct Environment<T>: AnyEnvironment {
         set {}
     }
 
+    @MainActor
     private func makeEnvironment(node: Node, transform: (inout EnvironmentValues) -> Void) -> EnvironmentValues {
         if let parent = node.parent {
             return makeEnvironment(node: parent) {
@@ -53,6 +55,10 @@ protocol AnyEnvironment {
     var valueReference: EnvironmentReference { get }
 }
 
-class EnvironmentReference {
+@MainActor
+final class EnvironmentReference {
     weak var node: Node?
+
+    // Property wrappers are created wherever their view is, which may be off the main actor.
+    nonisolated init() {}
 }

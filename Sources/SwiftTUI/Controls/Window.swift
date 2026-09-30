@@ -1,6 +1,7 @@
 import Foundation
 
-class Window: LayerDrawing {
+@MainActor
+final class Window: LayerDrawing {
     private(set) lazy var layer: Layer = makeLayer()
 
     private(set) var controls: [Control] = []

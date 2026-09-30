@@ -1,6 +1,7 @@
 import Foundation
 
-class Renderer {
+@MainActor
+final class Renderer {
     var layer: Layer
 
     /// Even though we only redraw invalidated parts of the screen, terminal

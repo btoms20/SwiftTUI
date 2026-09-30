@@ -2,6 +2,7 @@ import Foundation
 
 /// The basic layout object that can be created by a node. Not every node will
 /// create a control (e.g. ForEach won't).
+@MainActor
 class Control: LayerDrawing {
     private(set) var children: [Control] = []
     private(set) var parent: Control?

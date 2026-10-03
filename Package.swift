@@ -22,7 +22,13 @@ let package = Package(
             swiftSettings: swiftSettings),
         .testTarget(
             name: "SwiftTUITests",
+            dependencies: ["SwiftTUI", "SwiftTUITestApp"],
+            swiftSettings: swiftSettings),
+        // Run in a pseudo-terminal by the end-to-end tests; not part of any product.
+        .executableTarget(
+            name: "SwiftTUITestApp",
             dependencies: ["SwiftTUI"],
+            path: "Tests/SwiftTUITestApp",
             swiftSettings: swiftSettings),
     ]
 )

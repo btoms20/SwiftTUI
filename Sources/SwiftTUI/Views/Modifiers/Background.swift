@@ -13,14 +13,13 @@ private struct Background<Content: View>: View, PrimitiveView, ModifierView {
     static var size: Int? { Content.size }
 
     func buildNode(_ node: Node) {
-        node.controls = WeakSet<Control>()
         node.addNode(at: 0, Node(view: content.view))
     }
 
     func updateNode(_ node: Node) {
         node.view = self
         node.children[0].update(using: content.view)
-        for control in node.controls?.values ?? [] {
+        for control in node.wrapperControls {
             let control = control as! BackgroundControl
             if control.color != color {
                 control.color = color
@@ -30,11 +29,7 @@ private struct Background<Content: View>: View, PrimitiveView, ModifierView {
     }
 
     func passControl(_ control: Control, node: Node) -> Control {
-        if let backgroundControl = control.parent { return backgroundControl }
-        let backgroundControl = BackgroundControl(color: color)
-        backgroundControl.addSubview(control, at: 0)
-        node.controls?.add(backgroundControl)
-        return backgroundControl
+        node.wrapper(for: control) { BackgroundControl(color: color) }
     }
 
     private class BackgroundControl: Control {

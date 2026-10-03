@@ -30,6 +30,10 @@ public struct Button<Label: View>: View, PrimitiveView {
     func updateNode(_ node: Node) {
         node.view = self
         node.children[0].update(using: label.view)
+        // Closures may capture values from the latest body evaluation.
+        let control = node.control as! ButtonControl
+        control.action = action
+        control.hover = hover
     }
 
     private class ButtonControl: Control {
@@ -52,10 +56,10 @@ public struct Button<Label: View>: View, PrimitiveView {
             self.label.layout(size: size)
         }
 
-        override func handleEvent(_ char: Character) {
-            if char == "\n" || char == " " {
-                action()
-            }
+        override func handle(_ event: KeyEvent) -> Bool {
+            guard event == KeyEvent(.enter) || event == KeyEvent(.character(" ")) else { return false }
+            action()
+            return true
         }
 
         override var selectable: Bool { true }

@@ -21,63 +21,115 @@ public struct TextField: View, PrimitiveView {
     func updateNode(_ node: Node) {
         setupEnvironmentProperties(node: node)
         node.view = self
-        (node.control as! TextFieldControl).action = action
+        let control = node.control as! TextFieldControl
+        control.action = action
+        let placeholder = placeholder ?? ""
+        if control.placeholder != placeholder || control.placeholderColor != placeholderColor {
+            control.placeholder = placeholder
+            control.placeholderColor = placeholderColor
+            control.layer.invalidate()
+        }
     }
 
     private class TextFieldControl: Control {
-        var placeholder: String
         var placeholderColor: Color
         var action: @MainActor (String) -> Void
 
-        var text: String = ""
+        var placeholder: String {
+            didSet { placeholderColumns = Self.columns(for: placeholder) }
+        }
+        private var placeholderColumns: [Character?]
+
+        private var text: [Character] = [] {
+            didSet { textColumns = Self.columns(for: text) }
+        }
+        private var textColumns: [Character?] = []
+
+        /// The index in `text` that typed characters are inserted at.
+        private var cursor = 0 {
+            didSet { cursorColumn = text[..<cursor].reduce(0) { $0 + $1.displayWidth } }
+        }
+
+        /// The terminal column the cursor is drawn in.
+        private var cursorColumn = 0
 
         init(placeholder: String, placeholderColor: Color, action: @escaping @MainActor (String) -> Void) {
             self.placeholder = placeholder
+            self.placeholderColumns = Self.columns(for: placeholder)
             self.placeholderColor = placeholderColor
             self.action = action
         }
 
-        override func size(proposedSize: Size) -> Size {
-            return Size(width: Extended(max(text.count, placeholder.count)) + 1, height: 1)
+        /// Characters laid out one per terminal column; `nil` marks the column
+        /// covered by the right half of a wide character.
+        private static func columns(for characters: some Sequence<Character>) -> [Character?] {
+            var columns: [Character?] = []
+            for character in characters {
+                columns.append(character)
+                if character.displayWidth > 1 { columns.append(nil) }
+            }
+            return columns
         }
 
-        override func handleEvent(_ char: Character) {
-            if char == "\n" {
-                action(text)
-                self.text = ""
+        override func size(proposedSize: Size) -> Size {
+            // One extra column for the cursor after the last character.
+            return Size(width: Extended(max(textColumns.count, placeholderColumns.count)) + 1, height: 1)
+        }
+
+        override func handle(_ event: KeyEvent) -> Bool {
+            if let character = event.text {
+                text.insert(character, at: cursor)
+                cursor += 1
                 layer.invalidate()
-                return
+                return true
             }
 
-            if char == ASCII.DEL {
-                if !self.text.isEmpty {
-                    self.text.removeLast()
-                    layer.invalidate()
-                }
-                return
+            guard event.modifiers.isEmpty else { return false }
+            switch event.key {
+            case .enter:
+                action(String(text))
+                text = []
+                cursor = 0
+            case .backspace:
+                guard cursor > 0 else { return true }
+                cursor -= 1
+                text.remove(at: cursor)
+            case .delete:
+                guard cursor < text.count else { return true }
+                text.remove(at: cursor)
+            case .left:
+                // At the edges, let the arrow keys move focus instead.
+                guard cursor > 0 else { return false }
+                cursor -= 1
+            case .right:
+                guard cursor < text.count else { return false }
+                cursor += 1
+            case .home:
+                cursor = 0
+            case .end:
+                cursor = text.count
+            default:
+                return false
             }
-
-            self.text += String(char)
             layer.invalidate()
+            return true
         }
 
         override func cell(at position: Position) -> Cell? {
             guard position.line == 0 else { return nil }
-            if text.isEmpty {
-                if position.column.intValue < placeholder.count {
-                    let showUnderline = (position.column.intValue == 0) && isFirstResponder
-                    let char = placeholder[placeholder.index(placeholder.startIndex, offsetBy: position.column.intValue)]
-                    return Cell(
-                        char: char,
-                        foregroundColor: placeholderColor,
-                        attributes: CellAttributes(underline: showUnderline)
-                    )
-                }
-                return .init(char: " ")
+            let column = position.column.intValue
+            let isCursor = isFirstResponder && column == cursorColumn
+            let attributes = CellAttributes(underline: isCursor)
+
+            let columns = text.isEmpty ? placeholderColumns : textColumns
+            let color = text.isEmpty ? placeholderColor : .default
+            guard column >= 0, column < columns.count else {
+                return Cell(char: " ", attributes: attributes)
             }
-            if position.column.intValue == text.count, isFirstResponder { return Cell(char: " ", attributes: CellAttributes(underline: true)) }
-            guard position.column.intValue < text.count else { return .init(char: " ") }
-            return Cell(char: text[text.index(text.startIndex, offsetBy: position.column.intValue)])
+            guard let character = columns[column] else {
+                return Cell(char: " ", foregroundColor: color).continuation()
+            }
+            return Cell(char: character, foregroundColor: color, attributes: attributes)
         }
 
         override var selectable: Bool { true }

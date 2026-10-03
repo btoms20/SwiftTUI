@@ -85,7 +85,6 @@ private struct Border<Content: View>: View, PrimitiveView, ModifierView {
     
     func buildNode(_ node: Node) {
         setupEnvironmentProperties(node: node)
-        node.controls = WeakSet<Control>()
         node.addNode(at: 0, Node(view: content.view))
     }
     
@@ -93,10 +92,11 @@ private struct Border<Content: View>: View, PrimitiveView, ModifierView {
         setupEnvironmentProperties(node: node)
         node.view = self
         node.children[0].update(using: content.view)
-        for control in node.controls?.values ?? [] {
+        for control in node.wrapperControls {
             let control = control as! BorderControl
-            if control.color != color || control.style != style {
-                control.color = color ?? foregroundColor
+            let resolvedColor = color ?? foregroundColor
+            if control.color != resolvedColor || control.style != style {
+                control.color = resolvedColor
                 control.style = style
                 control.layer.invalidate()
             }
@@ -104,11 +104,7 @@ private struct Border<Content: View>: View, PrimitiveView, ModifierView {
     }
     
     func passControl(_ control: Control, node: Node) -> Control {
-        if let borderControl = control.parent { return borderControl }
-        let borderControl = BorderControl(color: color ?? foregroundColor, style: style)
-        borderControl.addSubview(control, at: 0)
-        node.controls?.add(borderControl)
-        return borderControl
+        node.wrapper(for: control) { BorderControl(color: color ?? foregroundColor, style: style) }
     }
     
     private class BorderControl: Control {
@@ -122,8 +118,8 @@ private struct Border<Content: View>: View, PrimitiveView, ModifierView {
         
         override func size(proposedSize: Size) -> Size {
             var proposedSize = proposedSize
-            proposedSize.width -= 2
-            proposedSize.height -= 2
+            proposedSize.width = max(proposedSize.width - 2, 0)
+            proposedSize.height = max(proposedSize.height - 2, 0)
             var size = children[0].size(proposedSize: proposedSize)
             size.width += 2
             size.height += 2
@@ -132,8 +128,8 @@ private struct Border<Content: View>: View, PrimitiveView, ModifierView {
         
         override func layout(size: Size) {
             var contentSize = size
-            contentSize.width -= 2
-            contentSize.height -= 2
+            contentSize.width = max(contentSize.width - 2, 0)
+            contentSize.height = max(contentSize.height - 2, 0)
             children[0].layout(size: contentSize)
             children[0].layer.frame.position = Position(column: 1, line: 1)
             self.layer.frame.size = size

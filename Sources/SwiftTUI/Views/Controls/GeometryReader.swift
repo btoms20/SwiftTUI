@@ -7,28 +7,32 @@ public struct GeometryReader<Content: View>: View, PrimitiveView {
         self.content = content
     }
 
-    @State private var geometry: Size = Size(width: 1, height: 1)
-
     static var size: Int? { 1 }
 
     func buildNode(_ node: Node) {
-        setupStateProperties(node: node)
-        node.addNode(at: 0, Node(view: VStack(content: content(geometry))))
-        node.control = GeometryReaderControl(geometry: _geometry)
-        node.control!.addSubview(node.children[0].control(at: 0), at: 0)
+        let control = GeometryReaderControl(node: node, content: content)
+        node.addNode(at: 0, Node(view: VStack(content: content(control.contentSize)).view))
+        control.addSubview(node.children[0].control(at: 0), at: 0)
+        node.control = control
     }
 
     func updateNode(_ node: Node) {
-        setupStateProperties(node: node)
         node.view = self
-        node.children[0].update(using: VStack(content: content(geometry)))
+        let control = node.control as! GeometryReaderControl
+        control.content = content
+        node.children[0].update(using: VStack(content: content(control.contentSize)).view)
     }
 
     private class GeometryReaderControl: Control {
-        let geometry: State<Size>
+        weak var node: Node?
+        var content: (Size) -> Content
 
-        init(geometry: State<Size>) {
-            self.geometry = geometry
+        /// The size the content was last built for.
+        private(set) var contentSize: Size = .zero
+
+        init(node: Node, content: @escaping (Size) -> Content) {
+            self.node = node
+            self.content = content
         }
 
         override func size(proposedSize: Size) -> Size {
@@ -37,10 +41,12 @@ public struct GeometryReader<Content: View>: View, PrimitiveView {
 
         override func layout(size: Size) {
             super.layout(size: size)
-            self.children[0].layout(size: size)
-            if geometry.wrappedValue != size {
-                geometry.wrappedValue = size
+            // Rebuild the content for the size it actually gets, before laying it out.
+            if contentSize != size, let node {
+                contentSize = size
+                node.children[0].update(using: VStack(content: content(size)).view)
             }
+            children[0].layout(size: size)
         }
     }
 }

@@ -113,8 +113,12 @@ public struct Divider: View, PrimitiveView {
         node.view = self
 
         let control = node.control as! DividerControl
-        control.orientation = stackOrientation
-        control.color = foregroundColor
+        if control.orientation != stackOrientation || control.color != foregroundColor || control.style != style {
+            control.orientation = stackOrientation
+            control.color = foregroundColor
+            control.style = style
+            control.layer.invalidate()
+        }
     }
     
     private class DividerControl: Control {

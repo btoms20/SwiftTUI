@@ -27,7 +27,6 @@ final class Renderer {
         self.layer = layer
         self.output = output
         setCache()
-        setup()
     }
 
     /// Draw only the invalidated part of the layer.
@@ -46,23 +45,29 @@ final class Renderer {
     func draw(rect: Rect? = nil) {
         if rect == nil { layer.invalidated = nil }
         let rect = rect ?? Rect(position: .zero, size: layer.frame.size)
-        guard rect.size.width > 0, rect.size.height > 0 else {
-            assertionFailure("Trying to draw in empty rect")
-            return
-        }
-        for line in rect.minLine.intValue ... rect.maxLine.intValue {
-            for column in rect.minColumn.intValue ... rect.maxColumn.intValue {
+
+        // Only draw the part of `rect` that is on screen.
+        let minLine = max(rect.minLine, 0)
+        let minColumn = max(rect.minColumn, 0)
+        let maxLine = min(rect.maxLine, layer.frame.size.height - 1)
+        let maxColumn = min(rect.maxColumn, layer.frame.size.width - 1)
+        guard minLine <= maxLine, minColumn <= maxColumn else { return }
+
+        for line in minLine.intValue ... maxLine.intValue {
+            for column in minColumn.intValue ... maxColumn.intValue {
                 let position = Position(column: Extended(column), line: Extended(line))
                 if let cell = layer.cell(at: position) {
-                    drawPixel(cell, at: Position(column: Extended(column), line: Extended(line)))
+                    drawPixel(cell, at: position)
                 }
             }
         }
     }
 
+    /// Undoes what ``setup()`` changed, so the shell looks as it did before.
     func stop() {
-        write(EscapeSequence.disableAlternateBuffer)
+        write(EscapeSequence.resetAttributes)
         write(EscapeSequence.showCursor)
+        write(EscapeSequence.disableAlternateBuffer)
     }
 
     private func drawPixel(_ cell: Cell, at position: Position) {
@@ -71,6 +76,17 @@ final class Renderer {
         }
         if cache[position.line.intValue][position.column.intValue] != cell {
             cache[position.line.intValue][position.column.intValue] = cell
+            // The terminal filled this column when it drew the wide character before it.
+            if cell.isContinuation { return }
+
+            var cell = cell
+            var width = cell.char.displayWidth
+            // A wide character that doesn't fit on the line would wrap, so draw a space instead.
+            if width > 1, position.column + 1 >= layer.frame.size.width {
+                cell.char = " "
+                width = 1
+            }
+
             if self.currentPosition != position {
                 write(EscapeSequence.moveTo(position))
                 self.currentPosition = position
@@ -86,12 +102,23 @@ final class Renderer {
             }
             self.updateAttributes(cell.attributes)
             write(String(cell.char))
-            self.currentPosition.column += 1
+            self.currentPosition.column += Extended(width)
         }
     }
 
-    private func setup() {
+    /// Switches to a cleared alternate screen with a hidden cursor.
+    ///
+    /// Also used after the process is resumed, when nothing is known about the
+    /// terminal's state, so all tracked state is reset.
+    func setup() {
+        currentPosition = .zero
+        currentForegroundColor = nil
+        currentBackgroundColor = nil
+        currentAttributes = CellAttributes()
+        setCache()
+
         write(EscapeSequence.enableAlternateBuffer)
+        write(EscapeSequence.resetAttributes)
         write(EscapeSequence.clearScreen)
         write(EscapeSequence.moveTo(currentPosition))
         write(EscapeSequence.hideCursor)

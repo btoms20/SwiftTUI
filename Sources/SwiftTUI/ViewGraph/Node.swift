@@ -21,14 +21,14 @@ final class Node {
     var state: [String: Any] = [:]
     var environment: ((inout EnvironmentValues) -> Void)?
     #if os(macOS)
-    var subscriptions: [String: AnyCancellable] = [:]
+    var subscriptions: [String: ObservedObjectSubscription] = [:]
     #endif
 
     var control: Control?
     weak var application: Application?
 
-    /// For modifiers only, references to the controls
-    var controls: WeakSet<Control>?
+    /// For modifiers only: the wrapper controls they created, keyed by the control each one wraps.
+    private var wrappers: [ObjectIdentifier: Weak<Control>] = [:]
 
     private(set) weak var parent: Node?
     private(set) var children: [Node] = []
@@ -122,6 +122,29 @@ final class Node {
             i += size
         }
         fatalError("Out of bounds")
+    }
+
+    // MARK: - Modifier wrappers
+
+    /// Returns the control this modifier node wraps `control` in, creating it
+    /// with `makeWrapper` the first time.
+    ///
+    /// Controls are requested from nodes repeatedly, so a modifier must hand
+    /// back the same wrapper each time rather than wrapping twice.
+    func wrapper(for control: Control, makeWrapper: () -> Control) -> Control {
+        let key = ObjectIdentifier(control)
+        // A live wrapper keeps its child alive, so the key can't have been reused.
+        if let wrapper = wrappers[key]?.value { return wrapper }
+        let wrapper = makeWrapper()
+        wrapper.addSubview(control, at: 0)
+        wrappers[key] = Weak(value: wrapper)
+        return wrapper
+    }
+
+    /// The wrapper controls this modifier node has created that are still in use.
+    var wrapperControls: [Control] {
+        wrappers = wrappers.filter { $0.value.value != nil }
+        return wrappers.values.compactMap(\.value)
     }
 
     // MARK: - Container changes

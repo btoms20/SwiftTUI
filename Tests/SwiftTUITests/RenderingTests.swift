@@ -88,4 +88,30 @@ import Testing
         let host = TestHost(columns: 5, lines: 1) { Text("Hello, world") }
         #expect(host.text == "Hello")
     }
+
+    @Test func colorComponentBoundsAreInclusive() {
+        let host = TestHost {
+            HStack(spacing: 0) {
+                Text("a").foregroundColor(.xterm(red: 5, green: 5, blue: 5))
+                Text("b").foregroundColor(.xterm(white: 23))
+                Text("c").foregroundColor(.trueColor(red: 255, green: 0, blue: 255))
+            }
+        }
+        _ = host.text
+        #expect(host.terminal[0, 0].style.foreground == .xterm(231))
+        #expect(host.terminal[1, 0].style.foreground == .xterm(255))
+        #expect(host.terminal[2, 0].style.foreground == .rgb(255, 0, 255))
+    }
+
+    @Test func outOfRangeColorComponentsTrap() async {
+        await #expect(processExitsWith: .failure) {
+            _ = Color.xterm(red: 6, green: 0, blue: 0)
+        }
+        await #expect(processExitsWith: .failure) {
+            _ = Color.xterm(white: 24)
+        }
+        await #expect(processExitsWith: .failure) {
+            _ = Color.trueColor(red: 256, green: 0, blue: 0)
+        }
+    }
 }

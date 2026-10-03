@@ -13,7 +13,7 @@ final class TestHost {
     init<V: View>(columns: Int = 20, lines: Int = 5, _ view: V) {
         terminal = VirtualTerminal(columns: columns, lines: lines)
         application = Application(rootView: view, output: terminal)
-        application.resize(columns: columns, lines: lines)
+        application.start(columns: columns, lines: lines)
     }
 
     convenience init<V: View>(columns: Int = 20, lines: Int = 5, @ViewBuilder content: () -> V) {
@@ -56,5 +56,12 @@ enum Key {
     static let left = "\u{1b}[D"
     static let enter = "\n"
     static let space = " "
+    /// Backspace, labelled "delete" on Mac keyboards.
     static let delete = "\u{7f}"
+    static let forwardDelete = "\u{1b}[3~"
+    static let home = "\u{1b}[H"
+    static let end = "\u{1b}[F"
+    static let tab = "\t"
+    static let shiftTab = "\u{1b}[Z"
+    static let escape = "\u{1b}"
 }

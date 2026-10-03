@@ -1,4 +1,4 @@
-@_spi(Testing) import SwiftTUI
+@_spi(Testing) @testable import SwiftTUI
 
 /// A minimal terminal emulator that interprets the output of the renderer.
 ///
@@ -27,6 +27,8 @@ final class VirtualTerminal: TerminalOutput {
     struct Cell: Hashable {
         var character: Character = " "
         var style = Style()
+        /// Whether this column is covered by the wide character to its left.
+        var isWideContinuation = false
     }
 
     private(set) var columns: Int
@@ -59,7 +61,7 @@ final class VirtualTerminal: TerminalOutput {
     /// The screen contents with trailing spaces and trailing empty lines removed.
     var text: String {
         var rows = grid.map { row in
-            var characters = row.map(\.character)
+            var characters = row.filter { !$0.isWideContinuation }.map(\.character)
             while characters.last == " " { characters.removeLast() }
             return String(characters)
         }
@@ -127,8 +129,21 @@ final class VirtualTerminal: TerminalOutput {
             cursor.column += 1
             return
         }
-        grid[cursor.line][cursor.column] = Cell(character: character, style: style)
+        let (line, column) = (cursor.line, cursor.column)
+        // Overwriting either half of a wide character erases the other half, as terminals do.
+        if grid[line][column].isWideContinuation, column > 0 {
+            grid[line][column - 1] = Cell(style: grid[line][column - 1].style)
+        }
+        if column + 1 < columns, grid[line][column + 1].isWideContinuation {
+            grid[line][column + 1] = Cell(style: grid[line][column + 1].style)
+        }
+
+        grid[line][column] = Cell(character: character, style: style)
         cursor.column += 1
+        if character.displayWidth > 1, column + 1 < columns {
+            grid[line][column + 1] = Cell(character: " ", style: style, isWideContinuation: true)
+            cursor.column += 1
+        }
     }
 
     private func performCSI(parameters: String, final: Character) {

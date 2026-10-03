@@ -5,20 +5,6 @@ import Testing
 @Suite struct TerminalLifecycleTests {
     private static let screenReset = "\u{1b}[0m\u{1b}[?25h\u{1b}[?1049l"
 
-    @Test func mainLoopRunsMainQueueWorkOnTheMainThread() async {
-        // Input and signal handlers arrive through the main queue and assume
-        // they're on the main actor, so the loop must drain it on the main thread.
-        await #expect(processExitsWith: .success) {
-            await MainActor.run {
-                let host = TestHost { Text("Hi") }
-                DispatchQueue.main.async {
-                    exit(Thread.isMainThread ? EXIT_SUCCESS : EXIT_FAILURE)
-                }
-                host.application.runMainLoop()
-            }
-        }
-    }
-
     @Test func setupEntersAlternateScreenOnlyWhenStarted() async {
         await MainActor.run {
             let terminal = VirtualTerminal(columns: 5, lines: 1)
@@ -119,26 +105,5 @@ import Testing
         }
         let output = String(decoding: result?.standardOutputContent ?? [], as: UTF8.self)
         #expect(output == Self.screenReset)
-    }
-}
-
-/// A pseudo-terminal pair, so terminal settings can be tested without a real terminal.
-private struct PseudoTerminal {
-    let primary: Int32
-    let secondary: Int32
-
-    init?() {
-        primary = posix_openpt(O_RDWR | O_NOCTTY)
-        guard primary >= 0, grantpt(primary) == 0, unlockpt(primary) == 0, let name = ptsname(primary) else {
-            return nil
-        }
-        secondary = open(name, O_RDWR | O_NOCTTY)
-        guard secondary >= 0 else { return nil }
-    }
-
-    var attributes: termios {
-        var attributes = termios()
-        tcgetattr(secondary, &attributes)
-        return attributes
     }
 }

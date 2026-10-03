@@ -5,11 +5,14 @@ import Foundation
 @MainActor
 class Control: LayerDrawing {
     private(set) var children: [Control] = []
+    // Weak references make every retain and release of the object slower, and
+    // controls are retained constantly while drawing.
+    // The resulting cycles are broken by `detachSubtree()`.
     private(set) var parent: Control?
 
     private var index: Int = 0
 
-    var window: Window?
+    weak var window: Window?
     private(set) lazy var layer: Layer = makeLayer()
 
     var root: Control { parent?.root ?? self }
@@ -36,13 +39,26 @@ class Control: LayerDrawing {
             root.window?.firstResponder = selectableElement(above: index) ?? selectableElement(below: index)
             root.window?.firstResponder?.becomeFirstResponder()
         }
-        children[index].window = nil
-        children[index].parent = nil
+        let removed = children[index]
+        removed.window = nil
+        removed.parent = nil
         self.children.remove(at: index)
         layer.removeLayer(at: index)
+        // Removed controls aren't reused, so let the whole subtree be deallocated.
+        removed.detachSubtree()
         for i in index ..< children.count {
             children[i].index = i
         }
+    }
+
+    /// Clears the parent references in this subtree, so it can be deallocated
+    /// once it is no longer used.
+    func detachSubtree() {
+        for child in children {
+            child.detachSubtree()
+            child.parent = nil
+        }
+        layer.detachSublayers()
     }
 
     func isDescendant(of control: Control) -> Bool {
@@ -84,14 +100,16 @@ class Control: LayerDrawing {
 
     // MARK: - Event handling
 
-    func handleEvent(_ char: Character) {
-        for subview in children {
-            subview.handleEvent(char)
-        }
+    /// Handles a key press sent to this control while it is the first responder.
+    ///
+    /// - Returns: Whether the key was used. Unused keys, such as arrows, can
+    ///   then move focus instead.
+    func handle(_ event: KeyEvent) -> Bool {
+        false
     }
 
     func becomeFirstResponder() {
-        scroll(to: .zero)
+        scrollIntoView(Rect(position: .zero, size: layer.frame.size))
     }
 
     func resignFirstResponder() {}
@@ -101,6 +119,23 @@ class Control: LayerDrawing {
     // MARK: - Selection
 
     var selectable: Bool { false }
+
+    /// This control's frame in window coordinates.
+    final var frameInWindow: Rect {
+        var position = layer.frame.position
+        var ancestor = parent
+        while let current = ancestor {
+            position = position + current.layer.frame.position
+            ancestor = current.parent
+        }
+        return Rect(position: position, size: layer.frame.size)
+    }
+
+    /// The selectable controls in this subtree, in tree order.
+    final var selectableElements: [Control] {
+        if selectable { return [self] }
+        return children.flatMap(\.selectableElements)
+    }
 
     final var firstSelectableElement: Control? {
         if selectable { return self }
@@ -117,8 +152,9 @@ class Control: LayerDrawing {
 
     // MARK: - Scrolling
 
-    func scroll(to position: Position) {
-        parent?.scroll(to: position + layer.frame.position)
+    /// Asks enclosing scroll views to make `rect`, in this control's coordinates, visible.
+    func scrollIntoView(_ rect: Rect) {
+        parent?.scrollIntoView(Rect(position: rect.position + layer.frame.position, size: rect.size))
     }
 
 }

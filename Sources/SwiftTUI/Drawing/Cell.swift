@@ -22,4 +22,16 @@ struct Cell: Equatable {
         self.backgroundColor = backgroundColor
         self.attributes = attributes
     }
+
+    /// The cell covered by the right half of a wide character in the previous column.
+    /// Nothing is printed for it, the terminal already filled it when drawing the wide character.
+    func continuation() -> Cell {
+        var cell = self
+        cell.char = Self.continuationCharacter
+        return cell
+    }
+
+    var isContinuation: Bool { char == Self.continuationCharacter }
+
+    private static let continuationCharacter: Character = "\u{0}"
 }

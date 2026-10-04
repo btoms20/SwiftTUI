@@ -42,30 +42,22 @@ public struct Text: View, PrimitiveView {
         setupEnvironmentProperties(node: node)
         node.view = self
         let control = node.control as! TextControl
-        control.text = text
-        control._attributedText = _attributedText
-        control.foregroundColor = foregroundColor
-        control.bold = bold
-        control.italic = italic
-        control.underline = underline
-        control.strikethrough = strikethrough
-        control.layer.invalidate()
+        let cells = TextControl.cells(
+            text: text,
+            attributedText: _attributedText,
+            foregroundColor: foregroundColor,
+            attributes: CellAttributes(bold: bold, italic: italic, underline: underline, strikethrough: strikethrough)
+        )
+        if control.cells != cells {
+            control.cells = cells
+            control.layer.invalidate()
+        }
     }
-    
+
     private class TextControl: Control {
-        var text: String?
-        
-        var _attributedText: Any?
-        
-        @available(macOS 12, *)
-        var attributedText: AttributedString? { _attributedText as? AttributedString }
-        
-        var foregroundColor: Color
-        var bold: Bool
-        var italic: Bool
-        var underline: Bool
-        var strikethrough: Bool
-        
+        /// One cell per terminal column, so drawing any column is a lookup.
+        var cells: [Cell]
+
         init(
             text: String?,
             attributedText: Any?,
@@ -75,61 +67,60 @@ public struct Text: View, PrimitiveView {
             underline: Bool,
             strikethrough: Bool
         ) {
-            self.text = text
-            self._attributedText = attributedText
-            self.foregroundColor = foregroundColor
-            self.bold = bold
-            self.italic = italic
-            self.underline = underline
-            self.strikethrough = strikethrough
+            cells = Self.cells(
+                text: text,
+                attributedText: attributedText,
+                foregroundColor: foregroundColor,
+                attributes: CellAttributes(bold: bold, italic: italic, underline: underline, strikethrough: strikethrough)
+            )
         }
-        
+
         override func size(proposedSize: Size) -> Size {
-            return Size(width: Extended(characterCount), height: 1)
+            return Size(width: Extended(cells.count), height: 1)
         }
-        
+
         override func cell(at position: Position) -> Cell? {
             guard position.line == 0 else { return nil }
-            guard position.column < Extended(characterCount) else { return .init(char: " ") }
-            if #available(macOS 12, *), let attributedText {
-                let characters = attributedText.characters
-                let i = characters.index(characters.startIndex, offsetBy: position.column.intValue)
-                let char = attributedText[i ..< characters.index(after: i)]
-                let cellAttributes = CellAttributes(
-                    bold: char.bold ?? bold,
-                    italic: char.italic ?? italic,
-                    underline: char.underline ?? underline,
-                    strikethrough: char.strikethrough ?? strikethrough,
-                    inverted: char.inverted ?? false
-                )
-                return Cell(
-                    char: char.characters[char.startIndex],
-                    foregroundColor: char.foregroundColor ?? foregroundColor,
-                    backgroundColor: char.backgroundColor,
-                    attributes: cellAttributes
-                )
-            }
-            if let text {
-                let cellAttributes = CellAttributes(
-                    bold: bold,
-                    italic: italic,
-                    underline: underline,
-                    strikethrough: strikethrough
-                )
-                return Cell(
-                    char: text[text.index(text.startIndex, offsetBy: position.column.intValue)],
-                    foregroundColor: foregroundColor,
-                    attributes: cellAttributes
-                )
-            }
-            return nil
+            let column = position.column.intValue
+            guard column >= 0, column < cells.count else { return .init(char: " ") }
+            return cells[column]
         }
-        
-        private var characterCount: Int {
-            if #available(macOS 12, *), let attributedText {
-                return attributedText.characters.count
+
+        static func cells(text: String?, attributedText: Any?, foregroundColor: Color, attributes: CellAttributes) -> [Cell] {
+            var cells: [Cell] = []
+
+            func append(_ cell: Cell) {
+                cells.append(cell)
+                // Wide characters also cover the next column.
+                if cell.char.displayWidth > 1 {
+                    cells.append(cell.continuation())
+                }
             }
-            return text?.count ?? 0
+
+            if #available(macOS 12, *), let attributedText = attributedText as? AttributedString {
+                for run in attributedText.runs {
+                    let runAttributes = CellAttributes(
+                        bold: run.bold ?? attributes.bold,
+                        italic: run.italic ?? attributes.italic,
+                        underline: run.underline ?? attributes.underline,
+                        strikethrough: run.strikethrough ?? attributes.strikethrough,
+                        inverted: run.inverted ?? false
+                    )
+                    for character in attributedText[run.range].characters {
+                        append(Cell(
+                            char: character,
+                            foregroundColor: run.foregroundColor ?? foregroundColor,
+                            backgroundColor: run.backgroundColor,
+                            attributes: runAttributes
+                        ))
+                    }
+                }
+            } else if let text {
+                for character in text {
+                    append(Cell(char: character, foregroundColor: foregroundColor, attributes: attributes))
+                }
+            }
+            return cells
         }
     }
 }

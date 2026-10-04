@@ -3,6 +3,7 @@ import Foundation
 @MainActor
 class Layer {
     private(set) var children: [Layer] = []
+    // Strong for speed, like `Control.parent`; see `detachSublayers()`.
     private(set) var parent: Layer?
 
     weak var content: LayerDrawing?
@@ -26,8 +27,18 @@ class Layer {
     }
 
     func removeLayer(at index: Int) {
+        // Whatever the layer covered needs to be redrawn.
+        invalidate(rect: children[index].frame)
         children[index].parent = nil
         self.children.remove(at: index)
+    }
+
+    /// Clears the parent references in this layer tree, so it can be deallocated.
+    func detachSublayers() {
+        for child in children {
+            child.detachSublayers()
+            child.parent = nil
+        }
     }
 
     func invalidate() {

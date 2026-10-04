@@ -19,13 +19,13 @@ private struct OnAppear<Content: View>: View, PrimitiveView, ModifierView {
     func updateNode(_ node: Node) {
         node.view = self
         node.children[0].update(using: content.view)
+        for control in node.wrapperControls {
+            (control as! OnAppearControl).action = action
+        }
     }
 
     func passControl(_ control: Control, node: Node) -> Control {
-        if let onAppearControl = control.parent { return onAppearControl }
-        let onAppearControl = OnAppearControl(action: action)
-        onAppearControl.addSubview(control, at: 0)
-        return onAppearControl
+        node.wrapper(for: control) { OnAppearControl(action: action) }
     }
 
     private class OnAppearControl: Control {

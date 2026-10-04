@@ -3,6 +3,8 @@ import Foundation
 enum EscapeSequence {
     static let clearScreen = "\u{1b}[2J"
 
+    static let resetAttributes = "\u{1b}[0m"
+
     static let enableAlternateBuffer = "\u{1b}[?1049h"
     static let disableAlternateBuffer = "\u{1b}[?1049l"
 

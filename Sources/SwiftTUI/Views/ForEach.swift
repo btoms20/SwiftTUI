@@ -30,7 +30,8 @@ public struct ForEach<Data, ID, Content>: View, PrimitiveView where Data : Rando
     func updateNode(_ node: Node) {
         let last = node.view as! Self
         node.view = self
-        let diff = data.difference(from: last.data, by: { $0[keyPath: id] == $1[keyPath: last.id] })
+        // The closure receives an old element first, then a new one.
+        let diff = data.difference(from: last.data, by: { $0[keyPath: last.id] == $1[keyPath: id] })
         var needsUpdate = Set<Int>(0 ..< data.count)
         for change in diff {
             switch change {

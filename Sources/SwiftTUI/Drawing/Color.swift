@@ -38,7 +38,9 @@ public struct Color: Hashable, Sendable {
     /// A 24-bit color value. The red, green and blue components must be numbers between 0 and 255.
     /// Not all terminals support this.
     public static func trueColor(red: Int, green: Int, blue: Int) -> Color {
-        Color(data: .trueColor(TrueColor(red: red, green: green, blue: blue)))
+        precondition((0...255).contains(red) && (0...255).contains(green) && (0...255).contains(blue),
+                     "True color components must lie between 0 and 255")
+        return Color(data: .trueColor(TrueColor(red: red, green: green, blue: blue)))
     }
 
     var foregroundEscapeSequence: String {
@@ -115,17 +117,14 @@ struct XTermColor: Hashable {
     let value: Int
 
     static func color(red: Int, green: Int, blue: Int) -> XTermColor {
-        guard red >= 0, red < 6, green >= 0, green < 6, blue >= 0, blue < 6 else {
-            fatalError("Color values must lie between 1 and 5")
-        }
+        precondition((0...5).contains(red) && (0...5).contains(green) && (0...5).contains(blue),
+                     "xterm color components must lie between 0 and 5")
         let offset = 16 // system colors
         return XTermColor(value: offset + (6 * 6 * red) + (6 * green) + blue)
     }
 
     static func grayscale(white: Int) -> XTermColor {
-        guard white >= 0, white < 24 else {
-            fatalError("Color value must lie between 1 and 24")
-        }
+        precondition((0...23).contains(white), "xterm grayscale value must lie between 0 and 23")
         let offset = 16 + (6 * 6 * 6)
         return XTermColor(value: offset + white)
     }

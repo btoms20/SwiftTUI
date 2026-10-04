@@ -106,9 +106,59 @@ import Testing
         let host = TestHost(Resizing())
         #expect(host.text.hasPrefix("┌─┐"))
         host.send(Key.enter)
-        withKnownIssue("FlexibleFrame.updateNode assigns minHeight to minWidth") {
-            #expect(host.text.hasPrefix("┌──\n"))
+        #expect(host.text.hasPrefix("┌──\n"))
+    }
+
+    @Test func buttonActionSeesLatestBodyValues() {
+        final class Log { var values: [Int] = [] }
+        struct Capturing: View {
+            let log: Log
+            @State var count = 0
+            var body: some View {
+                // `current` is a plain value, captured fresh on each body evaluation.
+                let current = count
+                Button("Record") { log.values.append(current) }
+                Button("Increment") { count += 1 }
+            }
         }
+
+        let log = Log()
+        let host = TestHost(Capturing(log: log))
+        host.send(Key.down)
+        host.send(Key.enter)
+        host.send(Key.up)
+        host.send(Key.enter)
+        #expect(log.values == [1])
+    }
+
+    @Test func textFieldPlaceholderUpdates() {
+        struct Placeholder: View {
+            @State var alternate = false
+            var body: some View {
+                Button("Swap") { alternate = true }
+                TextField(placeholder: alternate ? "Second" : "First") { _ in }
+            }
+        }
+
+        let host = TestHost(Placeholder())
+        #expect(host.text == "Swap\nFirst")
+        host.send(Key.enter)
+        #expect(host.text == "Swap\nSecond")
+    }
+
+    @Test func dividerStyleUpdates() {
+        struct Styled: View {
+            @State var double = false
+            var body: some View {
+                Button("Style") { double = true }
+                Divider().style(double ? .double : .default)
+            }
+        }
+
+        let host = TestHost(columns: 5, lines: 2, Styled())
+        #expect(host.text == "Style\n─────")
+        host.send(Key.enter)
+        #expect(host.text == "Style\n═════")
     }
 }
 

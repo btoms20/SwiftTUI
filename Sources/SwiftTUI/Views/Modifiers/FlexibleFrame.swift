@@ -1,7 +1,7 @@
 import Foundation
 
 public extension View {
-    /// Aligns content to the top leading corner by default. Use the `.infinity` value for
+    /// Centers content by default. Use the `.infinity` value for
     /// `maxWidth` or `maxHeight` to allow views to take up all space.
     func frame(
         minWidth: Extended? = nil,
@@ -25,29 +25,26 @@ private struct FlexibleFrame<Content: View>: View, PrimitiveView, ModifierView {
     static var size: Int? { Content.size }
     
     func buildNode(_ node: Node) {
-        node.controls = WeakSet<Control>()
         node.addNode(at: 0, Node(view: content.view))
     }
-    
+
     func updateNode(_ node: Node) {
         node.view = self
         node.children[0].update(using: content.view)
-        for control in node.controls?.values ?? [] {
+        for control in node.wrapperControls {
             let control = control as! FlexibleFrameControl
             control.minWidth = minWidth
             control.maxWidth = maxWidth
-            control.minWidth = minHeight
+            control.minHeight = minHeight
             control.maxHeight = maxHeight
             control.alignment = alignment
         }
     }
     
     func passControl(_ control: Control, node: Node) -> Control {
-        if let fixedFrameControl = control.parent { return fixedFrameControl }
-        let fixedFrameControl = FlexibleFrameControl(minWidth: minWidth, maxWidth: maxWidth, minHeight: minHeight, maxHeight: maxHeight, alignment: alignment)
-        fixedFrameControl.addSubview(control, at: 0)
-        node.controls?.add(fixedFrameControl)
-        return fixedFrameControl
+        node.wrapper(for: control) {
+            FlexibleFrameControl(minWidth: minWidth, maxWidth: maxWidth, minHeight: minHeight, maxHeight: maxHeight, alignment: alignment)
+        }
     }
     
     private class FlexibleFrameControl: Control {

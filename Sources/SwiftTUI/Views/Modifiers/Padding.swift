@@ -22,14 +22,13 @@ private struct Padding<Content: View>: View, PrimitiveView, ModifierView {
     static var size: Int? { Content.size }
     
     func buildNode(_ node: Node) {
-        node.controls = WeakSet<Control>()
         node.addNode(at: 0, Node(view: content.view))
     }
-    
+
     func updateNode(_ node: Node) {
         node.view = self
         node.children[0].update(using: content.view)
-        for control in node.controls?.values ?? [] {
+        for control in node.wrapperControls {
             let control = control as! PaddingControl
             control.edges = edges
             control.length = length
@@ -37,11 +36,7 @@ private struct Padding<Content: View>: View, PrimitiveView, ModifierView {
     }
     
     func passControl(_ control: Control, node: Node) -> Control {
-        if let paddingControl = control.parent { return paddingControl }
-        let paddingControl = PaddingControl(edges: edges, length: length)
-        paddingControl.addSubview(control, at: 0)
-        node.controls?.add(paddingControl)
-        return paddingControl
+        node.wrapper(for: control) { PaddingControl(edges: edges, length: length) }
     }
     
     private class PaddingControl: Control {
@@ -57,8 +52,8 @@ private struct Padding<Content: View>: View, PrimitiveView, ModifierView {
 
         override func size(proposedSize: Size) -> Size {
             var proposedSize = proposedSize
-            proposedSize.width -= horizontalPadding
-            proposedSize.height -= verticalPadding
+            proposedSize.width = max(proposedSize.width - horizontalPadding, 0)
+            proposedSize.height = max(proposedSize.height - verticalPadding, 0)
             var size = children[0].size(proposedSize: proposedSize)
             size.width += horizontalPadding
             size.height += verticalPadding
@@ -67,8 +62,8 @@ private struct Padding<Content: View>: View, PrimitiveView, ModifierView {
         
         override func layout(size: Size) {
             var contentSize = size
-            contentSize.width -= horizontalPadding
-            contentSize.height -= verticalPadding
+            contentSize.width = max(contentSize.width - horizontalPadding, 0)
+            contentSize.height = max(contentSize.height - verticalPadding, 0)
             children[0].layout(size: contentSize)
             children[0].layer.frame.position = Position(column: leftPadding, line: topPadding)
             self.layer.frame.size = size
